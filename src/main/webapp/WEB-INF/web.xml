@@ -1,0 +1,16 @@
+<web-app>
+    <filter>
+        <filter-name>MyApplication</filter-name>
+        <filter-class>org.glassfish.jersey.servlet.ServletContainer</filter-class>
+        <init-param>
+            <param-name>jersey.config.server.provider.packages</param-name>
+            <param-value>cz.mzk.abbyyrest</param-value>
+        </init-param>
+    </filter>
+
+    <filter-mapping>
+        <filter-name>MyApplication</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+
+</web-app>

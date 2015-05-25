@@ -14,5 +14,7 @@ dependencies {
     compile 'org.glassfish.jersey.media:jersey-media-multipart:+'
     compile 'commons-io:commons-io:+'
     compile 'org.glassfish.jersey.containers:jersey-container-servlet:+'
+    compile 'org.apache.tika:tika-core:+'
+    compile 'org.glassfish.jersey.media:jersey-media-moxy:+'
     testCompile group: 'junit', name: 'junit', version: '4.11'
 }

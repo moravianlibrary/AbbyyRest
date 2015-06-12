@@ -1,0 +1,7 @@
+abbyrest:
+  build: .
+  volumes:
+    - ./ocr:/data/
+  ports:
+    - "80:8080"
+

@@ -84,7 +84,7 @@ public class AbbyyRest {
         }
 
         DigestInputStream dis = new DigestInputStream(is, md);
-        File fnoname = new File(pathIn + "forming.tmp");
+        File fnoname = new File(pathIn + File.pathSeparator + "forming.tmp");
         try {
             FileUtils.copyInputStreamToFile(dis, fnoname);
         } catch (IOException e) {
@@ -106,7 +106,7 @@ public class AbbyyRest {
         String name = nameBuilder.toString();
         pushedItem.setId(name);
         String fullName = name + "." + extension;
-        File fnamed = new File(pathIn + fullName);
+        File fnamed = new File(pathIn + File.pathSeparator + fullName);
         if (fnamed.exists()) {
             pushedItem.setMessage("Polozka je jiz ve vstupni slozce.");
             return Response.status(Status.CONFLICT).entity(pushedItem).build();

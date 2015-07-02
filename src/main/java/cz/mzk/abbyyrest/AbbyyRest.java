@@ -3,6 +3,7 @@ package cz.mzk.abbyyrest;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.POST;
 import javax.ws.rs.GET;
+import javax.ws.rs.DELETE;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
@@ -11,6 +12,9 @@ import java.io.*;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
@@ -25,9 +29,15 @@ import org.apache.commons.io.FileUtils;
 @Path("/ocr")
 public class AbbyyRest {
 
-    String pathIn = System.getenv("ABBYY_IN");
-    String pathOut = System.getenv("ABBYY_OUT");
-    String pathEx = System.getenv("ABBYY_EXCEPTION");
+    //String pathIn = System.getenv("ABBYY_IN");
+    //String pathOut = System.getenv("ABBYY_OUT");
+    //String pathEx = System.getenv("ABBYY_EXCEPTION");
+    //String pathTmp = System.getenv("ABBYY_TMP");
+
+    String pathIn = "/home/popelka/OCR/IN";
+    String pathOut = "/home/popelka/OCR/OUT";
+    String pathEx = "/home/popelka/OCR/EXCEPTION";
+    String pathTmp = "/home/popelka/OCR/TMP";
 
     @GET
     @Path("/state/{id}")
@@ -43,18 +53,21 @@ public class AbbyyRest {
             return Response.status(Status.BAD_REQUEST).entity(searchedItem).build();
         }
         File txt = isPresentIn(id, "txt", pathOut);
-        File xml = isPresentIn(id, "xml", pathOut);
+        File xml = isPresentIn(id, "alto.xml", pathOut);
 
         if (xml != null && txt != null) {
             searchedItem.setState(QueueItem.STATE_DONE);
             searchedItem.setMessage("Zpracovano.");
+            File deletedFlag = isPresentIn(id, pathTmp);
+            if (deletedFlag != null) deletedFlag.delete();
+            if (!(isPresentIn(id, pathIn) == null)) {}
         } else if (xml != null) {
             searchedItem.setMessage("Ve vystupni slozce je pritomny pouze vystup ALTO.");
         } else if (txt != null) {
             searchedItem.setMessage("Ve vystupni slozce je pritomny pouze vystup TXT.");
         } else if (!(isPresentIn(id, pathEx) == null)) {
             searchedItem.setMessage("Beh ABBYY OCR skoncil vyjimkou.");
-        } else if (!(isPresentIn(id, pathIn) == null)) {
+        } else if (!(isPresentIn(id, pathTmp) == null)) {
             searchedItem.setState(QueueItem.STATE_PROCESSING);
             searchedItem.setMessage("Ve fronte ke zpracovani.");
         } else {
@@ -84,9 +97,12 @@ public class AbbyyRest {
         }
 
         DigestInputStream dis = new DigestInputStream(is, md);
-        File fnoname = new File(pathIn + File.pathSeparator + "forming.tmp");
+        DateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmssSSS");
+        Date date = new Date();
+        String tmpname = dateFormat.format(date); 
+        File tmpfile = new File(pathTmp + File.separator + tmpname + ".tmp");
         try {
-            FileUtils.copyInputStreamToFile(dis, fnoname);
+            FileUtils.copyInputStreamToFile(dis, tmpfile);
         } catch (IOException e) {
             pushedItem.setMessage("Zapis souboru do vstupni slozky selhal.");
             return Response.status(Status.INTERNAL_SERVER_ERROR).entity(pushedItem).build();
@@ -106,17 +122,25 @@ public class AbbyyRest {
         String name = nameBuilder.toString();
         pushedItem.setId(name);
         String fullName = name + "." + extension;
-        File fnamed = new File(pathIn + File.pathSeparator + fullName);
+        File fnamed = new File(pathIn + File.separator + fullName);
         if (fnamed.exists()) {
             pushedItem.setMessage("Polozka je jiz ve vstupni slozce.");
+            tmpfile.delete();
             return Response.status(Status.CONFLICT).entity(pushedItem).build();
         }
-        if (!fnoname.renameTo(fnamed)) {
-            fnoname.delete();
-            pushedItem.setMessage("Prejmenovani docasneho souboru selhalo.");
+        if (!tmpfile.renameTo(fnamed)) {
+            tmpfile.delete();
+            pushedItem.setMessage("Presun z docasne do vstupni slozky selhal.");
             return Response.status(Status.INTERNAL_SERVER_ERROR).entity(pushedItem).build();
         }
-
+        tmpfile.delete();
+        File flg = new File(pathTmp + File.separator + name + ".flg");
+        try {
+            flg.createNewFile();
+        } catch (IOException e) {
+            pushedItem.setMessage("Vytvoreni .flg znacky selhalo.");
+            return Response.status(Status.INTERNAL_SERVER_ERROR).entity(pushedItem).build();
+        }
         pushedItem.setState(QueueItem.STATE_PROCESSING);
         pushedItem.setMessage("Zarazeno do fronty.");
         return Response.ok(pushedItem).build();
@@ -134,7 +158,7 @@ public class AbbyyRest {
         String mType;
         if (type.equalsIgnoreCase("alto")) {
             mType = MediaType.TEXT_XML;
-            type = "xml";
+            type = "alto.xml";
         } else if (type.equalsIgnoreCase("txt")) {
             mType = MediaType.TEXT_PLAIN;
         } else {
@@ -162,11 +186,10 @@ public class AbbyyRest {
                 return Response.status(Status.INTERNAL_SERVER_ERROR).entity(requestedItem).type(MediaType.APPLICATION_JSON).build();
             }
             return Response.ok().entity(fis).type(mType).build();
-
         }
     }
 
-    @POST
+    @DELETE
     @Path("/delete/{id}")
     @Produces({MediaType.APPLICATION_JSON})
     public Response delete(@PathParam("id") String id) {
@@ -184,42 +207,59 @@ public class AbbyyRest {
             }
         }
 
-        f = isPresentIn(id, "txt", pathOut);
+        f = isPresentIn(id, pathTmp);
         if (f != null) {
             if (f.delete()) {
-                f = isPresentIn(id, "alto", pathOut);
-                if (f != null) {
-                    if (f.delete()) {
-                        message = message + " OUT";
-                    } else {
-                        deletedItem.setMessage("Selhalo smazani ALTO ze slozky OUT.");
-                        return Response.status(Status.INTERNAL_SERVER_ERROR).entity(deletedItem).build();
-                    }
-                }
+                message = message + " TMP";
             } else {
-                deletedItem.setMessage("Selhalo smazani TXT ze slozky OUT.");
+                deletedItem.setMessage("Selhalo smazani flagu y adresare TMP.");
                 return Response.status(Status.INTERNAL_SERVER_ERROR).entity(deletedItem).build();
             }
         }
 
-        f = isPresentIn(id, pathEx);
+        f = isPresentIn(id, "txt", pathOut);
         if (f != null) {
             if (f.delete()) {
-                message = message + " EXCEPTION";
-            } else {
-                deletedItem.setMessage("Selhalo smazani ze slozky EXCEPTION.");
+                f = isPresentIn(id, "alto.xml", pathOut);
+                if (f != null) {
+                    if (f.delete()) {
+                        f = isPresentIn(id, "result.xml", pathOut);
+                        if (f != null) {
+                            if (f.delete()) {
+                                message = message + " OUT";
+                            } else {
+                                deletedItem.setMessage("Selhalo smazani RESULT ze slozky OUT.");
+                                return Response.status(Status.INTERNAL_SERVER_ERROR).entity(deletedItem).build();
+                            }
+                        } else {
+                            deletedItem.setMessage("Selhalo smazani ALTO ze slozky OUT.");
+                            return Response.status(Status.INTERNAL_SERVER_ERROR).entity(deletedItem).build();
+                        }
+                    }
+                } else {
+                    deletedItem.setMessage("Selhalo smazani TXT ze slozky OUT.");
+                    return Response.status(Status.INTERNAL_SERVER_ERROR).entity(deletedItem).build();
+                }
             }
         }
+            f = isPresentIn(id, pathEx);
+            if (f != null) {
+                if (f.delete()) {
+                    message = message + " EXCEPTION";
+                } else {
+                    deletedItem.setMessage("Selhalo smazani ze slozky EXCEPTION.");
+                }
+            }
 
-        if (message != "") {
-            deletedItem.setMessage("Smazano z" + message + ".");
-            deletedItem.setState(QueueItem.STATE_DELETED);
-            return Response.ok().entity(deletedItem).build();
+            if (message != "") {
+                deletedItem.setMessage("Smazano z" + message + ".");
+                deletedItem.setState(QueueItem.STATE_DELETED);
+                return Response.ok().entity(deletedItem).build();
+            }
+
+            deletedItem.setMessage("Polozka nebyla nalezena.");
+            return Response.status(Status.NOT_FOUND).entity(deletedItem).build();
         }
-
-        deletedItem.setMessage("Polozka nebyla nalezena.");
-        return Response.status(Status.NOT_FOUND).entity(deletedItem).build();
-    }
 
     private File isPresentIn(String id, String path) {
         return isPresentIn(id, "", path);

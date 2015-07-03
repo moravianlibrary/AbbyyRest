@@ -22,6 +22,7 @@ import javax.ws.rs.core.HttpHeaders;
 
 import cz.mzk.abbyyrest.pojo.QueueItem;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.FilenameUtils;
 
 /**
  * Created by rumanekm on 5.5.15.
@@ -34,10 +35,10 @@ public class AbbyyRest {
     //String pathEx = System.getenv("ABBYY_EXCEPTION");
     //String pathTmp = System.getenv("ABBYY_TMP");
 
-    String pathIn = "/home/popelka/OCR/IN";
-    String pathOut = "/home/popelka/OCR/OUT";
-    String pathEx = "/home/popelka/OCR/EXCEPTION";
-    String pathTmp = "/home/popelka/OCR/TMP";
+    String pathIn = "//home/rumanekm/testspace/abbyyrest/ocr2/OCR/IN";
+    String pathOut = "/home/rumanekm/testspace/abbyyrest/ocr2/OCR/OUT";
+    String pathEx = "/home/rumanekm/testspace/abbyyrest/ocr2/OCR/EXCEPTION";
+    String pathTmp = "/home/rumanekm/testspace/abbyyrest/ocr2/OCR/TMP";
 
     @GET
     @Path("/state/{id}")
@@ -53,7 +54,7 @@ public class AbbyyRest {
             return Response.status(Status.BAD_REQUEST).entity(searchedItem).build();
         }
         File txt = isPresentIn(id, "txt", pathOut);
-        File xml = isPresentIn(id, "alto.xml", pathOut);
+        File xml = isPresentIn(id, "xml", pathOut);
 
         if (xml != null && txt != null) {
             searchedItem.setState(QueueItem.STATE_DONE);
@@ -99,7 +100,7 @@ public class AbbyyRest {
         DigestInputStream dis = new DigestInputStream(is, md);
         DateFormat dateFormat = new SimpleDateFormat("yyyyMMddHHmmssSSS");
         Date date = new Date();
-        String tmpname = dateFormat.format(date); 
+        String tmpname = dateFormat.format(date);
         File tmpfile = new File(pathTmp + File.separator + tmpname + ".tmp");
         try {
             FileUtils.copyInputStreamToFile(dis, tmpfile);
@@ -158,7 +159,7 @@ public class AbbyyRest {
         String mType;
         if (type.equalsIgnoreCase("alto")) {
             mType = MediaType.TEXT_XML;
-            type = "alto.xml";
+            type = "xml";
         } else if (type.equalsIgnoreCase("txt")) {
             mType = MediaType.TEXT_PLAIN;
         } else {
@@ -220,7 +221,7 @@ public class AbbyyRest {
         f = isPresentIn(id, "txt", pathOut);
         if (f != null) {
             if (f.delete()) {
-                f = isPresentIn(id, "alto.xml", pathOut);
+                f = isPresentIn(id, "xml", pathOut);
                 if (f != null) {
                     if (f.delete()) {
                         f = isPresentIn(id, "result.xml", pathOut);
@@ -266,18 +267,9 @@ public class AbbyyRest {
     }
 
     private File isPresentIn(String id, String suffix, String path) {
-
-        File folder = new File(path);
-        File[] listOfFiles = folder.listFiles();
-        if (listOfFiles != null) {
-            for (File f : listOfFiles) {
-                String fname = f.getName();
-                if (fname.length() >= 36) {
-                    if ((fname.substring(0, 32).equalsIgnoreCase(id)) && (fname.endsWith(suffix))) {
-                        return f;
-                    }
-                }
-            }
+        File f = new File(path + File.separator + id + "." + suffix);
+        if (f.exists() && !f.isDirectory()) {
+            return f;
         }
         return null;
     }

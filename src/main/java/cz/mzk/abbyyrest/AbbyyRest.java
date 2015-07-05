@@ -1,28 +1,30 @@
 package cz.mzk.abbyyrest;
 
+import cz.mzk.abbyyrest.pojo.QueueItem;
+import org.apache.commons.io.FileUtils;
 import javax.ws.rs.Consumes;
-import javax.ws.rs.POST;
-import javax.ws.rs.GET;
 import javax.ws.rs.DELETE;
+import javax.ws.rs.GET;
+import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
-import java.io.*;
+import javax.ws.rs.core.HttpHeaders;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.Status;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
-import javax.ws.rs.core.HttpHeaders;
-
-import cz.mzk.abbyyrest.pojo.QueueItem;
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.FilenameUtils;
 
 /**
  * Created by rumanekm on 5.5.15.
@@ -30,15 +32,10 @@ import org.apache.commons.io.FilenameUtils;
 @Path("/ocr")
 public class AbbyyRest {
 
-    //String pathIn = System.getenv("ABBYY_IN");
-    //String pathOut = System.getenv("ABBYY_OUT");
-    //String pathEx = System.getenv("ABBYY_EXCEPTION");
-    //String pathTmp = System.getenv("ABBYY_TMP");
-
-    String pathIn = "//home/rumanekm/testspace/abbyyrest/ocr2/OCR/IN";
-    String pathOut = "/home/rumanekm/testspace/abbyyrest/ocr2/OCR/OUT";
-    String pathEx = "/home/rumanekm/testspace/abbyyrest/ocr2/OCR/EXCEPTION";
-    String pathTmp = "/home/rumanekm/testspace/abbyyrest/ocr2/OCR/TMP";
+    String pathIn = System.getenv("ABBYY_IN");
+    String pathOut = System.getenv("ABBYY_OUT");
+    String pathEx = System.getenv("ABBYY_EXCEPTION");
+    String pathTmp = System.getenv("ABBYY_TMP");
 
     @GET
     @Path("/state/{id}")
@@ -47,35 +44,39 @@ public class AbbyyRest {
 
         QueueItem searchedItem = new QueueItem();
         searchedItem.setId(id);
-        searchedItem.setState(QueueItem.STATE_ERROR);
 
         if (!id.matches("[a-fA-F0-9]{32}")) {
             searchedItem.setMessage("Zadane ID nema validni tvar MD5.");
+            searchedItem.setState(QueueItem.STATE_ERROR);
             return Response.status(Status.BAD_REQUEST).entity(searchedItem).build();
         }
         File txt = isPresentIn(id, "txt", pathOut);
         File xml = isPresentIn(id, "xml", pathOut);
 
         if (xml != null && txt != null) {
+            File deletedFlag = isPresentIn(id, "flg", pathTmp);
+            if (deletedFlag != null) deletedFlag.delete();
             searchedItem.setState(QueueItem.STATE_DONE);
             searchedItem.setMessage("Zpracovano.");
-            File deletedFlag = isPresentIn(id, pathTmp);
+            return Response.ok(searchedItem).build();
+
+        } else if (isPresentIn(id, "xml", pathEx) != null) {
+            File deletedFlag = isPresentIn(id, "flg", pathTmp);
             if (deletedFlag != null) deletedFlag.delete();
-            if (!(isPresentIn(id, pathIn) == null)) {}
-        } else if (xml != null) {
-            searchedItem.setMessage("Ve vystupni slozce je pritomny pouze vystup ALTO.");
-        } else if (txt != null) {
-            searchedItem.setMessage("Ve vystupni slozce je pritomny pouze vystup TXT.");
-        } else if (!(isPresentIn(id, pathEx) == null)) {
             searchedItem.setMessage("Beh ABBYY OCR skoncil vyjimkou.");
-        } else if (!(isPresentIn(id, pathTmp) == null)) {
+            searchedItem.setState(QueueItem.STATE_ERROR);
+            return Response.status(Status.INTERNAL_SERVER_ERROR).entity(searchedItem).build();
+
+        } else if (isPresentIn(id, "flg", pathTmp) != null) {
             searchedItem.setState(QueueItem.STATE_PROCESSING);
             searchedItem.setMessage("Ve fronte ke zpracovani.");
+            return Response.ok(searchedItem).build();
+
         } else {
             searchedItem.setMessage("Zadny zaznam pro zadane ID.");
+            searchedItem.setState(QueueItem.STATE_ERROR);
             return Response.status(Status.NOT_FOUND).entity(searchedItem).build();
         }
-        return Response.ok(searchedItem).build();
     }
 
     @POST
@@ -124,17 +125,7 @@ public class AbbyyRest {
         pushedItem.setId(name);
         String fullName = name + "." + extension;
         File fnamed = new File(pathIn + File.separator + fullName);
-        if (fnamed.exists()) {
-            pushedItem.setMessage("Polozka je jiz ve vstupni slozce.");
-            tmpfile.delete();
-            return Response.status(Status.CONFLICT).entity(pushedItem).build();
-        }
-        if (!tmpfile.renameTo(fnamed)) {
-            tmpfile.delete();
-            pushedItem.setMessage("Presun z docasne do vstupni slozky selhal.");
-            return Response.status(Status.INTERNAL_SERVER_ERROR).entity(pushedItem).build();
-        }
-        tmpfile.delete();
+
         File flg = new File(pathTmp + File.separator + name + ".flg");
         try {
             flg.createNewFile();
@@ -142,6 +133,21 @@ public class AbbyyRest {
             pushedItem.setMessage("Vytvoreni .flg znacky selhalo.");
             return Response.status(Status.INTERNAL_SERVER_ERROR).entity(pushedItem).build();
         }
+
+        if (fnamed.exists()) {
+            pushedItem.setState(QueueItem.STATE_PROCESSING);
+            pushedItem.setMessage("Polozka je jiz ve vstupni slozce.");
+            tmpfile.delete();
+//            return Response.status(Status.CONFLICT).entity(pushedItem).build();
+            return Response.ok(pushedItem).build();
+        }
+
+        if (!tmpfile.renameTo(fnamed)) {
+            tmpfile.delete();
+            pushedItem.setMessage("Presun z docasne do vstupni slozky selhal.");
+            return Response.status(Status.INTERNAL_SERVER_ERROR).entity(pushedItem).build();
+        }
+        tmpfile.delete();
         pushedItem.setState(QueueItem.STATE_PROCESSING);
         pushedItem.setMessage("Zarazeno do fronty.");
         return Response.ok(pushedItem).build();
@@ -198,7 +204,7 @@ public class AbbyyRest {
         deletedItem.setState(QueueItem.STATE_ERROR);
         String message = "";
 
-        File f = isPresentIn(id, pathIn);
+        File f = isPresentIn(id, "jpg", pathIn);
         if (f != null) {
             if (f.delete()) {
                 message = message + " IN";
@@ -208,12 +214,12 @@ public class AbbyyRest {
             }
         }
 
-        f = isPresentIn(id, pathTmp);
+        f = isPresentIn(id, "flg", pathTmp);
         if (f != null) {
             if (f.delete()) {
                 message = message + " TMP";
             } else {
-                deletedItem.setMessage("Selhalo smazani flagu y adresare TMP.");
+                deletedItem.setMessage("Selhalo smazani flagu ze slozky TMP.");
                 return Response.status(Status.INTERNAL_SERVER_ERROR).entity(deletedItem).build();
             }
         }
@@ -243,7 +249,7 @@ public class AbbyyRest {
                 }
             }
         }
-            f = isPresentIn(id, pathEx);
+            f = isPresentIn(id, "xml", pathEx);
             if (f != null) {
                 if (f.delete()) {
                     message = message + " EXCEPTION";
@@ -262,6 +268,8 @@ public class AbbyyRest {
             return Response.status(Status.NOT_FOUND).entity(deletedItem).build();
         }
 
+    // v současném stavu nemůže fungovat (každý soubor má nějaký suffix)
+    // TODO opravit mazání z IN (Jaké jsou možné suffixy? Jen .jpg a .jp2?)
     private File isPresentIn(String id, String path) {
         return isPresentIn(id, "", path);
     }

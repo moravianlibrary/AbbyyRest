@@ -9,6 +9,9 @@ RUN curl -sL  http://ftp-devel.mzk.cz/AbbyyRest/AbbyyRest-1.0.war -o $CATALINA_H
 ENV ABBYY_IN /data/IN
 ENV ABBYY_OUT=/data/OUT
 ENV ABBYY_EXCEPTION=/data/EXCEPTION
+ENV ABBYY_TMP=/data/TMP/
+
+ADD server.xml $CATALINA_HOME/conf/
 
 CMD ["catalina.sh", "run"]
 

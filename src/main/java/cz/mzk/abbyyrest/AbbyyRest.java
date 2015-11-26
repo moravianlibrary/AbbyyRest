@@ -60,7 +60,7 @@ public class AbbyyRest {
             searchedItem.setMessage("Zpracovano.");
             return Response.ok(searchedItem).build();
 
-        } else if (isPresentIn(id, "xml", pathEx) != null) {
+        } else if (isPresentIn(id, "result.xml", pathEx) != null) {
             File deletedFlag = isPresentIn(id, "flg", pathTmp);
             if (deletedFlag != null) deletedFlag.delete();
             searchedItem.setMessage("Beh ABBYY OCR skoncil vyjimkou.");

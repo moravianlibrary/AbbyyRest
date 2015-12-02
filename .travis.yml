@@ -4,8 +4,8 @@ jdk: oraclejdk8
 install: gradle clean build
 sudo: false
 
-#notifications:
-#  email: false
+notifications:
+  email: false
 
 deploy:
   skip_cleanup: true

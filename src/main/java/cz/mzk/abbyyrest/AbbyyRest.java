@@ -49,11 +49,11 @@ public class AbbyyRest {
 
         QueueItem searchedItem = new QueueItem();
         searchedItem.setId(id);
-        logger.info("Ověřuje se stav položky " + id + "...");
+        logger.info("Overuje se stav polozky " + id + "...");
 
         if (!id.matches("[a-fA-F0-9]{32}")) {
-            searchedItem.setMessage("Zadané ID nemá validní tvar MD5.");
-            logger.warn("Zadané ID " + id + " nemá validní tvar MD5. Vrácena chyba 400.");
+            searchedItem.setMessage("Zadane ID nema validni tvar MD5.");
+            logger.warn("Zadane ID " + id + " nema validni tvar MD5. Vracena chyba 400.");
             searchedItem.setState(QueueItem.STATE_ERROR);
             return Response.status(Status.BAD_REQUEST).entity(searchedItem).build();
         }
@@ -61,38 +61,38 @@ public class AbbyyRest {
         File xml = isPresentIn(id, "xml", pathOut);
 
         if (xml != null && txt != null) {
-            logger.debug("Pro ID " + id + " existuje textový i ALTO výstup.");
+            logger.debug("Pro ID " + id + " existuje textovy i ALTO vystup.");
             File deletedFlag = isPresentIn(id, "flg", pathTmp);
             if (deletedFlag != null) {
                 deletedFlag.delete();
-                logger.debug("Smazán .flg soubor");
+                logger.debug("Smazan .flg soubor");
             }
             searchedItem.setState(QueueItem.STATE_DONE);
-            logger.info("Položka " + id + " je zpracována. Vrácena odpověď 200.");
-            searchedItem.setMessage("Zpracováno.");
+            logger.info("Polozka " + id + " je zpracovana. Vracena odpoveď 200.");
+            searchedItem.setMessage("Zpracovano.");
             return Response.ok(searchedItem).build();
 
         } else if (isPresentIn(id, "result.xml", pathEx) != null) {
             File deletedFlag = isPresentIn(id, "flg", pathTmp);
             if (deletedFlag != null) {
                 deletedFlag.delete();
-                logger.debug("Smazán .flg soubor");
+                logger.debug("Smazan .flg soubor");
             }
-            searchedItem.setMessage("Běh ABBYY OCR skončil pro položku " + id + " výjimkou.");
+            searchedItem.setMessage("Beh ABBYY OCR skoncil pro polozku " + id + " vyjimkou.");
             // TODO cesta k exception
-            logger.warn("Běh ABBYY OCR skončil pro položku " + id + " výjimkou. Vrácena chyba 500.");
+            logger.warn("Beh ABBYY OCR skoncil pro polozku " + id + " vyjimkou. Vracena chyba 500.");
             searchedItem.setState(QueueItem.STATE_ERROR);
             return Response.status(Status.INTERNAL_SERVER_ERROR).entity(searchedItem).build();
 
         } else if (isPresentIn(id, "flg", pathTmp) != null) {
             searchedItem.setState(QueueItem.STATE_PROCESSING);
-            searchedItem.setMessage("Ve frontě ke zpracování.");
-            logger.info("Položka " + id + " čeká ve frontě ke zpracování. Vrácena odpověď 200.");
+            searchedItem.setMessage("Ve fronte ke zpracovani.");
+            logger.info("Polozka " + id + " ceka ve fronte ke zpracovani. Vracena odpoveď 200.");
             return Response.ok(searchedItem).build();
 
         } else {
-            searchedItem.setMessage("Žádný záznam pro zadané ID.");
-            logger.warn("Položka " + id + " nebyla nalezena. Vrácena odpověď 404.");
+            searchedItem.setMessage("Zadny zaznam pro zadane ID.");
+            logger.warn("Polozka " + id + " nebyla nalezena. Vracena odpoveď 404.");
             searchedItem.setState(QueueItem.STATE_ERROR);
             return Response.status(Status.NOT_FOUND).entity(searchedItem).build();
         }
@@ -105,7 +105,7 @@ public class AbbyyRest {
     public Response putInQueue(InputStream is, @Context HttpHeaders headers) {
 
         String contentType = headers.getRequestHeader("Content-Type").get(0);
-        logger.info("Přijata žádost na zařazení souboru typu " + contentType + " do fronty ...");
+        logger.info("Prijata zadost na zarazeni souboru typu " + contentType + " do fronty ...");
         MessageDigest md;
         QueueItem pushedItem = new QueueItem();
         pushedItem.setId(null);
@@ -114,8 +114,8 @@ public class AbbyyRest {
         try {
             md = MessageDigest.getInstance("MD5");
         } catch (NoSuchAlgorithmException e) {
-            pushedItem.setMessage("Nepodařilo se inicializovat výpočet MD5.");
-            logger.error("Nepodařilo se inicializovat výpočet MD5. Vrácena chyba 500.");
+            pushedItem.setMessage("Nepodarilo se inicializovat vypocet MD5.");
+            logger.error("Nepodarilo se inicializovat vypocet MD5. Vracena chyba 500.");
             return Response.status(Status.INTERNAL_SERVER_ERROR).entity(pushedItem).build();
         }
 
@@ -124,16 +124,16 @@ public class AbbyyRest {
         Date date = new Date();
         String tmpname = pathTmp + File.separator + dateFormat.format(date) + ".tmp";
         File tmpfile = new File(tmpname);
-        logger.debug("Vytvářím dočasný soubor " + tmpname);
+        logger.debug("Vytvarim docasny soubor " + tmpname);
         try {
             FileUtils.copyInputStreamToFile(dis, tmpfile);
         } catch (IOException e) {
-            pushedItem.setMessage("Zápis souboru do vstupní složky selhal.");
-            logger.error("Zápis dočasného souboru " + tmpname + " selhal. Vrácena chyba 500.");
+            pushedItem.setMessage("Zapis souboru do vstupni slozky selhal.");
+            logger.error("Zapis docasneho souboru " + tmpname + " selhal. Vracena chyba 500.");
             return Response.status(Status.INTERNAL_SERVER_ERROR).entity(pushedItem).build();
         }
 
-        logger.debug("Dočasný soubor " + tmpname + " byl vytvořen.");
+        logger.debug("Docasny soubor " + tmpname + " byl vytvoren.");
 
         byte[] digest = md.digest();
         StringBuilder nameBuilder = new StringBuilder();
@@ -147,30 +147,30 @@ public class AbbyyRest {
             extension = "jpg";
         }
         String name = nameBuilder.toString();
-        logger.debug("Vypočítáno MD5: " + name + " .");
+        logger.debug("Vypocitano MD5: " + name + " .");
         pushedItem.setId(name);
         String fullName = name + "." + extension;
         File fnamed = new File(pathIn + File.separator + fullName);
 
         File flg = new File(pathTmp + File.separator + name + ".flg");
-        logger.debug("Vytvářím .flg soubor..." + pathTmp + File.separator + name + ".flg");
+        logger.debug("Vytvarim .flg soubor..." + pathTmp + File.separator + name + ".flg");
         try {
             flg.createNewFile();
         } catch (IOException e) {
-            pushedItem.setMessage("Vytvoření .flg značky selhalo.");
-            logger.error("Vytvoření .flg souboru " + pathTmp + File.separator + name + ".flg" + " selhalo. Vrácena chyba 500.");
+            pushedItem.setMessage("Vytvoreni .flg znacky selhalo.");
+            logger.error("Vytvoreni .flg souboru " + pathTmp + File.separator + name + ".flg" + " selhalo. Vracena chyba 500.");
             return Response.status(Status.INTERNAL_SERVER_ERROR).entity(pushedItem).build();
         }
-        logger.debug("Soubor " + pathTmp + File.separator + name + ".flg" + " byl vytvořen.");
+        logger.debug("Soubor " + pathTmp + File.separator + name + ".flg" + " byl vytvoren.");
 
         if (fnamed.exists()) {
             pushedItem.setState(QueueItem.STATE_PROCESSING);
-            pushedItem.setMessage("Položka je již ve vstupní složce.");
-            logger.info("Položka " + name + " je již ve vstupní složce.");
+            pushedItem.setMessage("Polozka je jiz ve vstupni slozce.");
+            logger.info("Polozka " + name + " je jiz ve vstupni slozce.");
             if (tmpfile.delete()) {
-                logger.debug("Dočasný soubor " + tmpname + " byl smazán.");
+                logger.debug("Docasny soubor " + tmpname + " byl smazan.");
             } else {
-                logger.warn("Dočasný soubor " + tmpname + " nebyl smazán.");
+                logger.warn("Docasny soubor " + tmpname + " nebyl smazan.");
             }
 //            return Response.status(Status.CONFLICT).entity(pushedItem).build();
             return Response.ok(pushedItem).build();
@@ -178,23 +178,23 @@ public class AbbyyRest {
 
         if (!tmpfile.renameTo(fnamed)) {
 
-            pushedItem.setMessage("Přesun z dočasné do vstupní složky selhal.");
-            logger.error("Přesun z dočasné do vstupní složky selhal. Vrácena chyba 500.");
+            pushedItem.setMessage("Presun z docasne do vstupni slozky selhal.");
+            logger.error("Presun z docasne do vstupni slozky selhal. Vracena chyba 500.");
             if (tmpfile.delete()) {
-                logger.debug("Dočasný soubor " + tmpname + " byl smazán.");
+                logger.debug("Docasny soubor " + tmpname + " byl smazan.");
             } else {
-                logger.warn("Dočasný soubor " + tmpname + " nebyl smazán.");
+                logger.warn("Docasny soubor " + tmpname + " nebyl smazan.");
             }
             return Response.status(Status.INTERNAL_SERVER_ERROR).entity(pushedItem).build();
         }
         if (tmpfile.delete()) {
-            logger.debug("Dočasný soubor " + tmpname + " byl smazán.");
+            logger.debug("Docasny soubor " + tmpname + " byl smazan.");
         } else {
-            logger.warn("Dočasný soubor " + tmpname + " nebyl smazán.");
+            logger.warn("Docasny soubor " + tmpname + " nebyl smazan.");
         }
         pushedItem.setState(QueueItem.STATE_PROCESSING);
-        pushedItem.setMessage("Zařazeno do fronty.");
-        logger.info("Položka " + name + " byla zařazena do fronty. Vrácena odpověď 200." );
+        pushedItem.setMessage("Zarazeno do fronty.");
+        logger.info("Polozka " + name + " byla zarazena do fronty. Vracena odpoveď 200." );
         return Response.ok(pushedItem).build();
     }
 
@@ -203,7 +203,7 @@ public class AbbyyRest {
     @Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_XML, MediaType.TEXT_PLAIN})
     public Response getProduct(@PathParam("id") String id, @PathParam("type") String type) {
 
-        logger.info("Přijata žádost o " + type + " výstup položky " + id);
+        logger.info("Prijata zadost o " + type + " vystup polozky " + id);
         QueueItem requestedItem = new QueueItem();
         requestedItem.setId(id);
         requestedItem.setState(QueueItem.STATE_ERROR);
@@ -215,34 +215,34 @@ public class AbbyyRest {
         } else if (type.equalsIgnoreCase("txt")) {
             mType = MediaType.TEXT_PLAIN;
         } else {
-            requestedItem.setMessage("Byl požadován jiný formát než \"alto\" nebo \"txt\".");
-            logger.warn("Byl požadován jiný formát než \"alto\" nebo \"txt\". Vrácena chyba 400.");
+            requestedItem.setMessage("Byl pozadovan jiny format nez \"alto\" nebo \"txt\".");
+            logger.warn("Byl pozadovan jiny format nez \"alto\" nebo \"txt\". Vracena chyba 400.");
             return Response.status(Status.BAD_REQUEST).entity(requestedItem).build();
         }
 
 
         if (!id.matches("[a-fA-F0-9]{32}")) {
-            requestedItem.setMessage("Zadané ID nemá validní tvar MD5.");
-            logger.warn("ID výstupu " + id + " nemá validní tvar. Vrácena chyba 400.");
+            requestedItem.setMessage("Zadane ID nema validni tvar MD5.");
+            logger.warn("ID vystupu " + id + " nema validni tvar. Vracena chyba 400.");
             return Response.status(Status.BAD_REQUEST).entity(requestedItem).build();
         }
 
         File f = isPresentIn(id, type, pathOut);
 
         if (f == null) {
-            requestedItem.setMessage("Požadovaný výstup není k dispozici");
-            logger.warn("Výstup není dostupný. Vrácena chyba 400.");
+            requestedItem.setMessage("Pozadovany vystup neni k dispozici");
+            logger.warn("Vystup neni dostupny. Vracena chyba 400.");
             return Response.status(Status.NOT_FOUND).entity(requestedItem).type(MediaType.APPLICATION_JSON).build();
         } else {
             FileInputStream fis;
             try {
                 fis = new FileInputStream(f);
             } catch (FileNotFoundException e) {
-                requestedItem.setMessage("Soubor se nepodařilo přečíst");
-                logger.error("Soubor" +id + " " + type + " se nepodařilo přečíst. Vrácena chyba 500.");
+                requestedItem.setMessage("Soubor se nepodarilo precist");
+                logger.error("Soubor" +id + " " + type + " se nepodarilo precist. Vracena chyba 500.");
                 return Response.status(Status.INTERNAL_SERVER_ERROR).entity(requestedItem).type(MediaType.APPLICATION_JSON).build();
             }
-            logger.info("Výstup " + id + " " + type + " bude odeslán s odpovědí 200.");
+            logger.info("Vystup " + id + " " + type + " bude odeslan s odpovedi 200.");
             return Response.ok().entity(fis).type(mType).build();
 
         }
@@ -253,7 +253,7 @@ public class AbbyyRest {
     @Produces({MediaType.APPLICATION_JSON})
     public Response delete(@PathParam("id") String id) {
 
-        logger.info("Přijata žádost o odstraňování položky " + id);
+        logger.info("Prijata zadost o odstranovani polozky " + id);
         QueueItem deletedItem = new QueueItem();
         deletedItem.setState(QueueItem.STATE_ERROR);
         String message = "";
@@ -262,10 +262,10 @@ public class AbbyyRest {
         if (f != null) {
             if (f.delete()) {
                 message = message + " IN";
-                logger.info("Soubor smazán ze složky IN.");
+                logger.info("Soubor smazan ze slozky IN.");
             } else {
-                logger.error("Selhalo odstraňování ze složky IN.");
-                deletedItem.setMessage("Selhalo odstraňování ze složky IN.");
+                logger.error("Selhalo odstranovani ze slozky IN.");
+                deletedItem.setMessage("Selhalo odstranovani ze slozky IN.");
                 return Response.status(Status.INTERNAL_SERVER_ERROR).entity(deletedItem).build();
             }
         }
@@ -274,10 +274,10 @@ public class AbbyyRest {
         if (f != null) {
             if (f.delete()) {
                 message = message + " TMP";
-                logger.info("Smazána .flg značka ze složky TMP.");
+                logger.info("Smazana .flg znacka ze slozky TMP.");
             } else {
-                deletedItem.setMessage("Selhalo odstraňování flagu ze složky TMP.");
-                logger.error("Nepodařilo se smazat .flg značku ze složky TMP.");
+                deletedItem.setMessage("Selhalo odstranovani flagu ze slozky TMP.");
+                logger.error("Nepodarilo se smazat .flg znacku ze slozky TMP.");
                 return Response.status(Status.INTERNAL_SERVER_ERROR).entity(deletedItem).build();
             }
         }
@@ -285,30 +285,30 @@ public class AbbyyRest {
         f = isPresentIn(id, "txt", pathOut);
         if (f != null) {
             if (f.delete()) {
-                logger.info("Soubor " + id + ".txt smazán ze složky OUT.");
+                logger.info("Soubor " + id + ".txt smazan ze slozky OUT.");
                 f = isPresentIn(id, "xml", pathOut);
                 if (f != null) {
                     if (f.delete()) {
-                        logger.info("Soubor " + id + ".xml smazán ze složky OUT.");
+                        logger.info("Soubor " + id + ".xml smazan ze slozky OUT.");
                         f = isPresentIn(id, "result.xml", pathOut);
                         if (f != null) {
                             if (f.delete()) {
-                                logger.info("Soubor " + id + ".result smazán ze složky OUT.");
+                                logger.info("Soubor " + id + ".result smazan ze slozky OUT.");
                                 message = message + " OUT";
                             } else {
-                                logger.error("Odstraňování souboru " + id + ".result ze složky OUT selhalo.");
-                                deletedItem.setMessage("Selhalo odstraňování RESULT ze složky OUT.");
+                                logger.error("Odstranovani souboru " + id + ".result ze slozky OUT selhalo.");
+                                deletedItem.setMessage("Selhalo odstranovani RESULT ze slozky OUT.");
                                 return Response.status(Status.INTERNAL_SERVER_ERROR).entity(deletedItem).build();
                             }
                         } else {
-                            logger.error("Odstraňování ALTO souboru " + id + ".xml ze složky OUT selhalo.");
-                            deletedItem.setMessage("Selhalo odstraňování ALTO ze složky OUT.");
+                            logger.error("Odstranovani ALTO souboru " + id + ".xml ze slozky OUT selhalo.");
+                            deletedItem.setMessage("Selhalo odstranovani ALTO ze slozky OUT.");
                             return Response.status(Status.INTERNAL_SERVER_ERROR).entity(deletedItem).build();
                         }
                     }
                 } else {
-                    logger.error("Odstraňování souboru " + id + ".txt ze složky OUT selhalo.");
-                    deletedItem.setMessage("Selhalo odstraňování TXT ze složky OUT.");
+                    logger.error("Odstranovani souboru " + id + ".txt ze slozky OUT selhalo.");
+                    deletedItem.setMessage("Selhalo odstranovani TXT ze slozky OUT.");
                     return Response.status(Status.INTERNAL_SERVER_ERROR).entity(deletedItem).build();
                 }
             }
@@ -316,27 +316,27 @@ public class AbbyyRest {
         f = isPresentIn(id, "xml", pathEx);
         if (f != null) {
             if (f.delete()) {
-                logger.info("Soubor smazán  ze složky EXCEPTION.");
+                logger.info("Soubor smazan  ze slozky EXCEPTION.");
                 message = message + " EXCEPTION";
             } else {
-                logger.error("Odstraňování souboru ze složky EXCEPTION selhalo.");
-                deletedItem.setMessage("Selhalo odstraňování ze složky EXCEPTION.");
+                logger.error("Odstranovani souboru ze slozky EXCEPTION selhalo.");
+                deletedItem.setMessage("Selhalo odstranovani ze slozky EXCEPTION.");
             }
         }
 
         if (!message.equals("")) {
-            deletedItem.setMessage("Smazáno z " + message);
+            deletedItem.setMessage("Smazano z " + message);
             deletedItem.setState(QueueItem.STATE_DELETED);
             return Response.ok().entity(deletedItem).build();
         }
 
-        logger.error("Položka nebyla nalezena v žádném z adresařů.");
-        deletedItem.setMessage("Položka nebyla nalezena.");
+        logger.error("Polozka nebyla nalezena v zadnem z adresaru.");
+        deletedItem.setMessage("Polozka nebyla nalezena.");
         return Response.status(Status.NOT_FOUND).entity(deletedItem).build();
     }
 
-    // v současném stavu nemůže fungovat (každý soubor má nějaký suffix)
-    // TODO opravit mazání z IN (Jaké jsou možné suffixy? Jen .jpg a .jp2?)
+    // v soucasnem stavu nemuze fungovat (kazdy soubor ma nejaky suffix)
+    // TODO opravit mazani z IN (Jake jsou mozne suffixy? Jen .jpg a .jp2?)
     private File isPresentIn(String id, String path) {
         return isPresentIn(id, "", path);
     }

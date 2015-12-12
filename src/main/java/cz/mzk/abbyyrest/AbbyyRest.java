@@ -136,9 +136,9 @@ public class AbbyyRest {
         logger.debug("Dočasný soubor " + tmpname + " byl vytvořen.");
 
         byte[] digest = md.digest();
-        StringBuffer nameBuilder = new StringBuffer();
-        for (int i = 0; i < digest.length; i++) {
-            String hex = Integer.toHexString(0xff & digest[i]);
+        StringBuilder nameBuilder = new StringBuilder();
+        for (byte aDigest : digest) {
+            String hex = Integer.toHexString(0xff & aDigest);
             if (hex.length() == 1) nameBuilder.append('0');
             nameBuilder.append(hex);
         }
